@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>The Great Dao: An Idle Cultivation RNG Game</title>
+    <meta name="description" content="A high-stakes idle cultivation game where your fate is decided by RNG. Roll for legendary luck, ascend through realms, and battle spirits.">
+    <meta name="keywords" content="Cultivation Game, Idle Game, Clicker, RNG, Fate, Dao, Martial Arts Game, Incremental">
+    <meta name="author" content="Jinglin">
+
+    <style>
+        :root { --gold: #d4af37; --bg: #050505; --panel: #111; }
+        body { background: var(--bg); color: #ccc; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; padding: 20px; user-select: none; overflow-x: hidden; }
+        .box { border: 2px solid var(--gold); padding: 20px; background: var(--panel); width: 750px; border-radius: 12px; position: relative; box-shadow: 0 0 30px rgba(0,0,0,0.5); }
+        
+        /* Tabs */
+        .tab-container { display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+        .tab-btn { padding: 12px; background: #111; border: 1px solid #444; flex: 1; cursor: pointer; color: #888; font-weight: bold; border-radius: 4px; transition: 0.2s; }
+        .tab-btn.active { border-color: var(--gold); color: var(--gold); background: #1a1a1a; }
+
+        .panel { display: none; min-height: 420px; }
+        .panel.active { display: block; }
+
+        /* Stats */
+        .header { text-align: center; margin-bottom: 20px; }
+        .stat-grid { background: #000; padding: 15px; border-radius: 8px; border: 1px solid #222; margin-bottom: 20px; text-align: center; }
+        .gold { color: var(--gold); font-weight: bold; font-size: 22px; }
+
+        /* Cultivate */
+        .main-btn { height: 100px; background: #1a2a1a; font-size: 24px; border: 2px solid #2d5a2d; color: #fff; width: 100%; cursor: pointer; border-radius: 8px; margin-bottom: 15px; transition: 0.1s; }
+        .main-btn:active { transform: scale(0.98); background: #233a23; }
+        .upgrade-btn { width: 100%; padding: 15px; margin-bottom: 10px; background: #222; color: #fff; border: 1px solid #444; cursor: pointer; font-weight: bold; }
+        .upgrade-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        /* Fate */
+        .fate-flex { display: flex; gap: 20px; }
+        .fate-main { flex: 1; }
+        .fate-table-wrap { width: 300px; font-size: 11px; background: #000; padding: 10px; border-radius: 5px; border: 1px solid #333; }
+        .fate-table-wrap table { width: 100%; border-collapse: collapse; }
+        .fate-table-wrap th { color: var(--gold); text-align: left; padding-bottom: 8px; border-bottom: 1px solid #222; }
+        .fate-table-wrap td { padding: 10px 0; border-bottom: 1px solid #111; }
+        tr.current-fate { background: rgba(212,175,55,0.25); color: #fff; outline: 1px solid var(--gold); }
+
+        /* Trials */
+        #combatArea { background: #000; padding: 30px; border-radius: 8px; text-align: center; border: 1px solid #222; margin-bottom: 15px; }
+        .enemy-box { width: 100px; height: 100px; margin: 0 auto 20px; background: #400; transition: transform 0.1s; }
+        .hp-bar-bg { background: #222; height: 20px; width: 100%; border-radius: 10px; overflow: hidden; border: 1px solid #444; }
+        #hpBarFill { background: linear-gradient(90deg, #900, #f00); height: 100%; width: 100%; transition: width 0.1s; }
+
+        #log { font-size: 12px; color: #aaa; height: 140px; overflow-y: auto; background: #000; border: 1px solid #222; padding: 10px; margin-top: 15px; }
+        .shake { animation: shake 0.3s ease-in-out; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+    </style>
+</head>
+<body>
+
+<div class="box" id="mainBox">
+    <div class="header">
+        <div id="realmDisplay" style="color:var(--gold); font-weight: bold; letter-spacing: 2px;">MORTAL BODY</div>
+        <div id="qiDisplay" style="font-size: 38px; font-weight: bold;">0 Qi</div>
+    </div>
+
+    <div class="tab-container">
+        <button class="tab-btn active" onclick="openTab('cultivate')">CULTIVATE</button>
+        <button class="tab-btn" onclick="openTab('trials')">TRIALS</button>
+        <button class="tab-btn" onclick="openTab('fate')">FATE</button>
+        <button class="tab-btn" onclick="openTab('code')">CODE</button>
+    </div>
+
+    <div id="cultivate" class="panel active">
+        <div class="stat-grid">
+            <small>QI POWER (INCLUDES FATE MULTIPLIER)</small><br>
+            <span class="gold" id="powerDisp">1</span>
+        </div>
+        <button class="main-btn" onclick="gainQi()">CIRCULATE QI</button>
+        <button id="upBtn" class="upgrade-btn" onclick="buyUpgrade()">TEMPER FOUNDATION<br><small id="upCostText">Cost: 10</small></button>
+        <button id="btBtn" class="upgrade-btn" onclick="ascend()">ASCEND REALM<br><small id="btReqText">Req: 1,000</small></button>
+    </div>
+
+    <div id="trials" class="panel">
+        <div id="combatArea">
+            <div id="enemyName" style="color:var(--gold); font-weight: bold; margin-bottom: 10px;">Trial Spirit</div>
+            <div id="enemySprite" class="enemy-box" style="clip-path: polygon(50% 0%, 100% 100%, 0% 100%);"></div>
+            <div class="hp-bar-bg"><div id="hpBarFill"></div></div>
+            <div id="hpText" style="margin-top: 5px;">100 / 100</div>
+        </div>
+        <button class="main-btn" style="background:#300; border-color:#600; height:70px;" onclick="attackEnemy()">STRIKE FOE</button>
+    </div>
+
+    <div id="fate" class="panel">
+        <div class="fate-flex">
+            <div class="fate-main">
+                <div style="background:#000; border:1px solid #333; padding:20px; text-align:center; margin-bottom:15px;">
+                    <small style="color:#666">LAST FATE ROLLED</small><br>
+                    <span id="lastRollResult" style="font-size: 32px; font-weight: bold;">1.0x</span>
+                </div>
+                <button class="upgrade-btn" style="background:#1a1a3a" onclick="rollFate(1)">ROLL FATE (1,000,000 Qi)</button>
+                <button class="upgrade-btn" style="background:#2a1a3a" onclick="rollFate(10)">ROLL FATE x10 (10,000,000 Qi)</button>
+                <div id="log"></div>
+            </div>
+            <div class="fate-table-wrap">
+                <table>
+                    <thead><tr><th>RANK</th><th>MULT</th><th>CHANCE</th></tr></thead>
+                    <tbody id="fateTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="code" class="panel" style="text-align:center;">
+        <h3>Heavenly Code</h3>
+        <input type="password" id="secretKey" style="background:#000; color:#0f0; border:1px solid #444; padding:15px; width:70%; font-size:18px;">
+        <button class="upgrade-btn" style="margin-top:20px; width:50%;" onclick="applyCode()">VERIFY</button>
+    </div>
+</div>
+
+<script>
+    let state = {
+        qi: 0, basePower: 1, foundationCost: 10, realmIdx: 0,
+        fateMult: 1.0, isCreator: false, enemyHP: 100, enemyMax: 100
+    };
+
+    const realms = ["Mortal", "Qi Condensation", "Foundation", "Golden Core", "Nascent Soul", "Spirit Severing", "Void Refining", "Dao Seeking", "Immortal", "Immortal Emperor", "Eternal Being"];
+    const FATE_DATA = [
+        { name: "Heavenly Origin", mult: 1000000, chance: 0.000001, pitch: 1200 },
+        { name: "Reality Breaker", mult: 100000, chance: 0.00001, pitch: 900 },
+        { name: "Ancestral Fate", mult: 10000, chance: 0.0001, pitch: 700 },
+        { name: "Divine Blessing", mult: 1000, chance: 0.001, pitch: 500 },
+        { name: "Sage Gaze", mult: 100, chance: 0.01, pitch: 300 },
+        { name: "Common Path", mult: 1.1, chance: 1.0, pitch: 150 }
+    ];
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playSfx(freq, type='sine', dur=0.2) {
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + dur);
+    }
+
+    const format = (n) => n < 1e9 ? Math.floor(n).toLocaleString() : n.toExponential(2);
+
+    function calculateTotalPower() {
+        return state.basePower * Math.pow(10, state.realmIdx) * state.fateMult;
+    }
+
+    function updateUI() {
+        const power = calculateTotalPower();
+        const btReq = 1000 * Math.pow(100, state.realmIdx);
+
+        document.getElementById('qiDisplay').innerText = format(state.qi) + " Qi";
+        document.getElementById('powerDisp').innerText = format(power);
+        document.getElementById('realmDisplay').innerText = realms[state.realmIdx].toUpperCase();
+        document.getElementById('upCostText').innerText = "Cost: " + format(state.foundationCost);
+        document.getElementById('btReqText').innerText = "Req: " + format(btReq);
+        document.getElementById('upBtn').disabled = state.qi < state.foundationCost;
+        document.getElementById('btBtn').disabled = state.qi < btReq;
+
+        document.getElementById('hpBarFill').style.width = (state.enemyHP / state.enemyMax * 100) + "%";
+        document.getElementById('hpText').innerText = format(state.enemyHP) + " / " + format(state.enemyMax);
+
+        renderFateTable();
+        localStorage.setItem('dao_online_v1', JSON.stringify(state));
+    }
+
+    function gainQi() {
+        state.qi += calculateTotalPower();
+        updateUI();
+    }
+
+    function buyUpgrade() {
+        if(state.qi >= state.foundationCost) {
+            state.qi -= state.foundationCost;
+            if(state.isCreator) { state.basePower *= 2; state.foundationCost *= 1.1; }
+            else { state.basePower = Math.ceil((state.basePower + 1) * 1.1); state.foundationCost *= 1.3; }
+            playSfx(400, 'sine', 0.1);
+            updateUI();
+        }
+    }
+
+    function attackEnemy() {
+        state.enemyHP -= calculateTotalPower();
+        document.getElementById('enemySprite').style.transform = 'scale(1.2) rotate(10deg)';
+        setTimeout(() => document.getElementById('enemySprite').style.transform = 'scale(1)', 50);
+        if(state.enemyHP <= 0) {
+            const reward = state.enemyMax * 100;
+            state.qi += reward;
+            state.enemyMax *= 20;
+            state.enemyHP = state.enemyMax;
+            log("Slayed Spirit! Gained " + format(reward) + " Qi");
+            playSfx(600, 'triangle', 0.3);
+        }
+        updateUI();
+    }
+
+    function rollFate(count) {
+        const cost = 1000000 * count;
+        if(state.qi < cost) return;
+        state.qi -= cost;
+        let bestRoll = FATE_DATA[5];
+        for(let i=0; i<count; i++) {
+            let r = Math.random();
+            let roll = FATE_DATA.find(f => r <= f.chance);
+            if(roll.mult > bestRoll.mult) bestRoll = roll;
+        }
+        document.getElementById('lastRollResult').innerText = format(bestRoll.mult) + "x";
+        if(bestRoll.mult > state.fateMult) {
+            state.fateMult = bestRoll.mult;
+            log("NEW DESTINY: " + bestRoll.name + " (" + format(bestRoll.mult) + "x)", "gold");
+            playSfx(bestRoll.pitch, 'sawtooth', 0.8);
+            document.getElementById('mainBox').classList.add('shake');
+            setTimeout(() => document.getElementById('mainBox').classList.remove('shake'), 400);
+        }
+        updateUI();
+    }
+
+    function ascend() {
+        const req = 1000 * Math.pow(100, state.realmIdx);
+        if(state.qi >= req) {
+            state.qi = 0; state.realmIdx++; state.basePower = 1; state.foundationCost = 10;
+            playSfx(800, 'sine', 0.5);
+            log("ASCENDED TO " + realms[state.realmIdx], "cyan");
+            updateUI();
+        }
+    }
+
+    function renderFateTable() {
+        const body = document.getElementById('fateTableBody');
+        body.innerHTML = '';
+        FATE_DATA.forEach(f => {
+            const row = document.createElement('tr');
+            if(state.fateMult === f.mult) row.className = 'current-fate';
+            row.innerHTML = `<td>${f.name}</td><td>${format(f.mult)}x</td><td>${(f.chance*100).toFixed(4)}%</td>`;
+            body.appendChild(row);
+        });
+    }
+
+    function openTab(id) {
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        event.currentTarget.classList.add('active');
+    }
+
+    function log(msg, color="#aaa") {
+        const l = document.getElementById('log');
+        l.innerHTML = `<div style="color:${color}">> ${msg}</div>` + l.innerHTML;
+        if(l.children.length > 30) l.removeChild(l.lastChild);
+    }
+
+    function applyCode() {
+        if(document.getElementById('secretKey').value === "jinglin") {
+            state.isCreator = true;
+            log("GOD MODE ACTIVE", "#0f0");
+            document.getElementById('mainBox').style.borderColor = "#0f0";
+            updateUI();
+        }
+    }
+
+    const saved = localStorage.getItem('dao_online_v1');
+    if(saved) Object.assign(state, JSON.parse(saved));
+    updateUI();
+</script>
+</body>
+</html>
